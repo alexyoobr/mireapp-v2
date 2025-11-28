@@ -5,6 +5,28 @@ import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
+  server: {
+    proxy: {
+      '/auth': 'http://localhost:3000',
+      '/clientes': 'http://localhost:3000',
+      '/clientes/ranking': 'http://localhost:3000',
+      '/clientes/rfm': 'http://localhost:3000',
+      '/produtos/analise': 'http://localhost:3000',
+      '/produtos/colecao': 'http://localhost:3000',
+      '/produtos/cor': 'http://localhost:3000',
+      '/produtos/tamanho': 'http://localhost:3000',
+      '/produtos/ranking': 'http://localhost:3000',
+      '/produtos/sku': 'http://localhost:3000',
+      '/produtos/mensal': 'http://localhost:3000',
+      '/produtos/parados': 'http://localhost:3000',
+      '/produtos/vida-util': 'http://localhost:3000',
+      '/produtos/margem': 'http://localhost:3000',
+      '/pedidos': 'http://localhost:3000',
+      '/vendas': 'http://localhost:3000',
+      '/vendas/serie': 'http://localhost:3000',
+      '/relatorios': 'http://localhost:3000',
+    },
+  },
   plugins: [
     cloudflare({ viteEnvironment: { name: "ssr" } }),
     tailwindcss(),

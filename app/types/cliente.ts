@@ -12,6 +12,8 @@ export interface ClienteOverview {
     recencia_dias: number;
     bloqueado: number;
     restricao: number;
+    idloja?: string;
+    loja?: string;
 }
 
 export interface ClienteRanking {
@@ -25,6 +27,8 @@ export interface ClienteRanking {
     ranking_pecas: number;
     ranking_frequencia: number;
     ranking_ticket_medio: number;
+    idloja?: string;
+    loja?: string;
 }
 
 export interface ClienteRFM {
@@ -34,4 +38,6 @@ export interface ClienteRFM {
     recencia_dias: number;
     frequencia: number;
     monetary: string;
+    idloja?: string;
+    loja?: string;
 }

@@ -1,15 +1,45 @@
+import { useState } from 'react';
 import DashboardWrapper from '~/components/DashboardWrapper';
+import DateRangePicker from '~/components/DateRangePicker';
+import StoreFilter from '~/components/StoreFilter';
 
 export default function Relatorios() {
+    // Date state
+    const [startDate, setStartDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        return d.toISOString().split('T')[0];
+    });
+    const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+
+    // Store filter state
+    const [selectedStore, setSelectedStore] = useState<string>('');
+
     return (
         <DashboardWrapper>
-            <div className="min-h-screen bg-gray-50">
-                <header className="bg-white shadow-sm border-b border-gray-200">
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+                <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
                     <div className="px-8 py-6">
-                        <h1 className="text-3xl font-bold text-gray-900">Relatórios</h1>
-                        <p className="text-sm text-gray-600 mt-1">Análises e relatórios gerenciais</p>
+                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Relatórios</h1>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Análises e relatórios gerenciais</p>
                     </div>
                 </header>
+
+                <div className="px-8 py-6 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex flex-col md:flex-row md:items-center gap-4">
+                        <DateRangePicker
+                            startDate={startDate}
+                            endDate={endDate}
+                            onStartDateChange={setStartDate}
+                            onEndDateChange={setEndDate}
+                        />
+                        <StoreFilter
+                            stores={[]} // No data yet to populate stores
+                            selectedStore={selectedStore}
+                            onStoreChange={setSelectedStore}
+                        />
+                    </div>
+                </div>
 
                 <div className="px-8 py-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -45,8 +75,8 @@ export default function Relatorios() {
                         />
                     </div>
 
-                    <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <p className="text-gray-500 text-center">
+                    <div className="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                        <p className="text-gray-500 dark:text-gray-400 text-center">
                             Selecione um relatório acima para visualizar
                         </p>
                     </div>
@@ -58,12 +88,12 @@ export default function Relatorios() {
 
 function ReportCard({ title, description, icon }: { title: string; description: string; icon: string }) {
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow cursor-pointer">
             <div className="flex items-start gap-4">
                 <div className="text-4xl">{icon}</div>
                 <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{description}</p>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{description}</p>
                 </div>
             </div>
         </div>

@@ -21,14 +21,29 @@ export const links: Route.LinksFunction = () => [
     rel: "stylesheet",
     href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
   },
+  { rel: "manifest", href: "/manifest.json" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+        {/* PWA Meta Tags */}
+        <meta name="theme-color" content="#4f46e5" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="MireApp" />
+        <meta name="application-name" content="MireApp" />
+        <meta name="description" content="Dashboard de análise de vendas, clientes e produtos" />
+
+        {/* Apple Touch Icons */}
+        <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
+        <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png" />
+
         <Meta />
         <Links />
       </head>
@@ -41,8 +56,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+import { ThemeProvider } from "~/components/ThemeContext";
+import { useEffect } from "react";
+import { registerServiceWorker } from "~/lib/pwa";
+
 export default function App() {
-  return <Outlet />;
+  useEffect(() => {
+    // Register service worker for PWA
+    registerServiceWorker();
+  }, []);
+
+  return (
+    <ThemeProvider>
+      <Outlet />
+    </ThemeProvider>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

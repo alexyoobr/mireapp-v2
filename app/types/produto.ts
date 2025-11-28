@@ -8,6 +8,8 @@ export interface ProdutoAnalise {
     preco_medio_praticado: string;
     hit_rate: string;
     curva_abc_valor: string;
+    idloja?: string;
+    loja?: string;
 }
 
 export interface ProdutoAgregacao {
@@ -27,6 +29,8 @@ export interface ProdutoRanking {
     rank_faturamento: number;
     rank_quantidade: number;
     rank_frequencia: number;
+    idloja?: string;
+    loja?: string;
 }
 
 export interface ProdutoSKU {
@@ -38,21 +42,27 @@ export interface ProdutoSKU {
     quantidade: string;
     faturamento: string;
     preco_medio: string;
+    idloja?: string;
+    loja?: string;
 }
 
 export interface ProdutoMensal {
-    idproduto: string;
     mes_ano: string;
+    idproduto: string;
     pedidos: number;
-    quantidade: string;
-    faturamento: string;
-    preco_medio: string;
+    quantidade: number;
+    faturamento: number;
+    preco_medio: number;
+    idloja?: string;
+    loja?: string;
 }
 
 export interface ProdutoParado {
     idproduto: string;
     data_ultima_venda: string;
     dias_sem_venda: number;
+    idloja?: string;
+    loja?: string;
 }
 
 export interface ProdutoVidaUtil {
@@ -60,12 +70,15 @@ export interface ProdutoVidaUtil {
     primeira_venda: string;
     ultima_venda: string;
     dias_vida_util: number;
+    idloja?: string;
+    loja?: string;
 }
 
 export interface ProdutoMargem {
     idproduto: string;
-    faturamento: string;
-    quantidade: string;
-    custo_total: string;
-    margem_bruta: string;
+    faturamento: number;
+    custo_total: number;
+    margem_bruta: number;
+    idloja?: string;
+    loja?: string;
 }

@@ -1,7 +1,7 @@
 // API configuration and utilities
 const API_BASE_URL = import.meta.env.DEV
   ? ''
-  : 'http://127.0.0.1:3000';
+  : 'https://server.miredata.com.br';
 
 interface ApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';

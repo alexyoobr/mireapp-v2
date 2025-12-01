@@ -4,6 +4,7 @@ import DashboardWrapper from '~/components/DashboardWrapper';
 import DateRangePicker from '~/components/DateRangePicker';
 import StoreFilter from '~/components/StoreFilter';
 import type { ClienteOverview, ClienteRanking, ClienteRFM } from '~/types/cliente';
+import { useFilter } from '~/components/FilterContext';
 
 type TabType = 'overview' | 'ranking' | 'rfm';
 
@@ -12,23 +13,43 @@ export default function Clientes() {
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Date state
-    const [startDate, setStartDate] = useState(() => {
-        const d = new Date();
-        d.setDate(d.getDate() - 30);
-        return d.toISOString().split('T')[0];
-    });
-    const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
-
-    // Store filter state
-    const [selectedStore, setSelectedStore] = useState<string>('');
+    // Global filter state
+    const {
+        startDate,
+        endDate,
+        setStartDate,
+        setEndDate,
+        selectedStore,
+        setSelectedStore,
+        stores,
+        setStores
+    } = useFilter();
 
     useEffect(() => {
         const dbName = getAuth();
         if (dbName) {
+            // Only load stores if not already loaded
+            if (stores.length === 0) {
+                loadStores(dbName);
+            }
             loadData(dbName, activeTab);
         }
-    }, [activeTab, startDate, endDate]);
+    }, [activeTab, startDate, endDate, selectedStore]);
+
+    const loadStores = async (dbName: string) => {
+        try {
+            const response = await apiRequest<any[]>(`/vendas/lojas-ranking?inicio=${startDate}&fim=${endDate}`, dbName);
+            const uniqueStores = new Map<string, string>();
+            response.forEach(item => {
+                if (item.idloja && item.loja) {
+                    uniqueStores.set(item.idloja, item.loja);
+                }
+            });
+            setStores(Array.from(uniqueStores.entries()).map(([id, name]) => ({ id: String(id), name })));
+        } catch (error) {
+            console.error('Error loading stores:', error);
+        }
+    };
 
     const loadData = async (dbName: string, tab: TabType) => {
         setLoading(true);
@@ -45,6 +66,10 @@ export default function Clientes() {
                 case 'rfm': endpoint = `/clientes/rfm?inicio=${inicioStr}&fim=${fimStr}`; break;
             }
 
+            if (selectedStore) {
+                endpoint += `&idloja=${selectedStore}`;
+            }
+
             const responseData = await apiRequest<any[]>(endpoint, dbName);
             setData(responseData);
         } catch (error) {
@@ -55,22 +80,8 @@ export default function Clientes() {
         }
     };
 
-    // Extract unique stores
-    const stores = useMemo(() => {
-        const storeMap = new Map<string, string>();
-        data.forEach(item => {
-            if (item.idloja && item.loja) {
-                storeMap.set(item.idloja, item.loja);
-            }
-        });
-        return Array.from(storeMap.entries()).map(([id, name]) => ({ id, name }));
-    }, [data]);
-
-    // Filter data
-    const filteredData = useMemo(() => {
-        if (!selectedStore) return data;
-        return data.filter(item => !item.idloja || item.idloja === selectedStore);
-    }, [data, selectedStore]);
+    // Filter data - Client side filtering is no longer needed as we filter on server
+    const filteredData = data;
 
     const formatCurrency = (value: string | number) => {
         const num = typeof value === 'string' ? parseFloat(value) : value;
@@ -113,7 +124,6 @@ export default function Clientes() {
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cliente</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Loja</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Localização</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">LTV</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pedidos</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ticket Médio</th>
@@ -127,8 +137,9 @@ export default function Clientes() {
                                         <div className="font-medium">{item.nome}</div>
                                         <div className="text-xs text-gray-500 dark:text-gray-400">{item.idcliente}</div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.loja || '-'}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.cidade}/{item.uf}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        {item.loja || (selectedStore ? stores.find(s => s.id === selectedStore)?.name : '-')}
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatCurrency(item.valor_total_comprado_ltv)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{item.numero_pedidos}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatCurrency(item.ticket_medio)}</td>
@@ -168,7 +179,9 @@ export default function Clientes() {
                                         <div className="font-medium">{item.nome}</div>
                                         <div className="text-xs text-gray-500 dark:text-gray-400">{item.idcliente}</div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.loja || '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        {item.loja || (selectedStore ? stores.find(s => s.id === selectedStore)?.name : '-')}
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatCurrency(item.faturamento_total)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{item.total_pedidos}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatNumber(item.total_pecas)}</td>
@@ -199,7 +212,9 @@ export default function Clientes() {
                                         <div className="font-medium">{item.nome}</div>
                                         <div className="text-xs text-gray-500 dark:text-gray-400">{item.idcliente}</div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.loja || '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        {item.loja || (selectedStore ? stores.find(s => s.id === selectedStore)?.name : '-')}
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{new Date(item.ultima_compra).toLocaleDateString()}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{item.recencia_dias}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{item.frequencia}</td>
@@ -334,12 +349,21 @@ export default function Clientes() {
                 </header>
 
                 <div className="px-8 py-6 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                    <DateRangePicker
-                        startDate={startDate}
-                        endDate={endDate}
-                        onStartDateChange={setStartDate}
-                        onEndDateChange={setEndDate}
-                    />
+                    <div className="flex flex-wrap gap-6 items-end">
+                        <DateRangePicker
+                            startDate={startDate}
+                            endDate={endDate}
+                            onStartDateChange={setStartDate}
+                            onEndDateChange={setEndDate}
+                        />
+                        <div className="flex-1 min-w-[200px]">
+                            <StoreFilter
+                                stores={stores}
+                                selectedStore={selectedStore}
+                                onStoreChange={setSelectedStore}
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 <div className="px-8 py-8">

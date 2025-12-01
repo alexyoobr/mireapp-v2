@@ -57,6 +57,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 import { ThemeProvider } from "~/components/ThemeContext";
+import { FilterProvider } from "~/components/FilterContext";
 import { useEffect } from "react";
 import { registerServiceWorker } from "~/lib/pwa";
 
@@ -68,7 +69,9 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <Outlet />
+      <FilterProvider>
+        <Outlet />
+      </FilterProvider>
     </ThemeProvider>
   );
 }

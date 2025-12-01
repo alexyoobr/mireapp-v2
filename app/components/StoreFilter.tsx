@@ -11,7 +11,11 @@ export default function StoreFilter({
     onStoreChange,
     className = ''
 }: StoreFilterProps) {
-    if (stores.length <= 1) return null;
+    console.log('🔍 StoreFilter - Rendering with:', { storesCount: stores.length, stores, selectedStore });
+    if (stores.length <= 1) {
+        console.log('⚠️ StoreFilter - Not showing (stores.length <= 1)');
+        return null;
+    }
 
     return (
         <div className={className}>

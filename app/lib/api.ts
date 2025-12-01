@@ -58,6 +58,20 @@ export function clearAuth() {
   }
 }
 
+
 export function isAuthenticated(): boolean {
   return getAuth() !== null;
+}
+
+
+export function getToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Convert YYYY-MM-DD to DD/MM/YYYY for API calls
+export function formatDateBR(dateStr: string): string {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  return `${day}/${month}/${year}`;
 }

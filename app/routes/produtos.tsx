@@ -13,31 +13,54 @@ import type {
     ProdutoVidaUtil,
     ProdutoMargem
 } from '~/types/produto';
+import { useFilter } from '~/components/FilterContext';
 
-type TabType = 'analise' | 'colecao' | 'cor' | 'tamanho' | 'ranking' | 'sku' | 'mensal' | 'parados' | 'vida-util' | 'margem';
+type TabType = 'analise' | 'mix' | 'colecao' | 'cor' | 'tamanho' | 'ranking' | 'sku' | 'mensal' | 'parados' | 'vida-util' | 'margem' | 'margem-categoria' | 'sell-through' | 'giro-cobertura' | 'ruptura';
 
 export default function Produtos() {
     const [activeTab, setActiveTab] = useState<TabType>('analise');
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Date state
-    const [startDate, setStartDate] = useState(() => {
-        const d = new Date();
-        d.setDate(d.getDate() - 30);
-        return d.toISOString().split('T')[0];
-    });
-    const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
-
-    // Store filter state
-    const [selectedStore, setSelectedStore] = useState<string>('');
+    // Global filter state
+    const {
+        startDate,
+        endDate,
+        setStartDate,
+        setEndDate,
+        selectedStore,
+        setSelectedStore,
+        stores,
+        setStores
+    } = useFilter();
 
     useEffect(() => {
         const dbName = getAuth();
         if (dbName) {
+            // Only load stores if not already loaded
+            if (stores.length === 0) {
+                loadStores(dbName);
+            }
             loadData(dbName, activeTab);
         }
-    }, [activeTab, startDate, endDate]);
+    }, [activeTab, startDate, endDate, selectedStore]);
+
+    const loadStores = async (dbName: string) => {
+        try {
+            const response = await apiRequest<any[]>(`/vendas/lojas-ranking?inicio=${startDate}&fim=${endDate}`, dbName);
+            const uniqueStores = new Map<string, string>();
+            response.forEach(item => {
+                if (item.idloja && item.loja) {
+                    uniqueStores.set(item.idloja, item.loja);
+                }
+            });
+            const storesArray = Array.from(uniqueStores.entries()).map(([id, name]) => ({ id: String(id), name }));
+            console.log('🔍 Produtos - Stores loaded:', storesArray);
+            setStores(storesArray);
+        } catch (error) {
+            console.error('Error loading stores:', error);
+        }
+    };
 
     const loadData = async (dbName: string, tab: TabType) => {
         setLoading(true);
@@ -49,6 +72,7 @@ export default function Produtos() {
             let endpoint = '';
             switch (tab) {
                 case 'analise': endpoint = `/produtos/analise?inicio=${inicioStr}&fim=${fimStr}`; break;
+                case 'mix': endpoint = `/produtos/mix?inicio=${inicioStr}&fim=${fimStr}`; break;
                 case 'colecao': endpoint = `/produtos/colecao?inicio=${inicioStr}&fim=${fimStr}`; break;
                 case 'cor': endpoint = `/produtos/cor?inicio=${inicioStr}&fim=${fimStr}`; break;
                 case 'tamanho': endpoint = `/produtos/tamanho?inicio=${inicioStr}&fim=${fimStr}`; break;
@@ -58,6 +82,14 @@ export default function Produtos() {
                 case 'parados': endpoint = '/produtos/parados'; break;
                 case 'vida-util': endpoint = '/produtos/vida-util'; break;
                 case 'margem': endpoint = `/produtos/margem?inicio=${inicioStr}&fim=${fimStr}`; break;
+                case 'margem-categoria': endpoint = `/produtos/margem-categoria?inicio=${inicioStr}&fim=${fimStr}`; break;
+                case 'sell-through': endpoint = `/produtos/sell-through-semanal?inicio=${inicioStr}&fim=${fimStr}`; break;
+                case 'giro-cobertura': endpoint = `/produtos/giro-cobertura?inicio=${inicioStr}&fim=${fimStr}`; break;
+                case 'ruptura': endpoint = `/produtos/ruptura?inicio=${inicioStr}&fim=${fimStr}`; break;
+            }
+
+            if (selectedStore) {
+                endpoint += `&idloja=${selectedStore}`;
             }
 
             const responseData = await apiRequest<any[]>(endpoint, dbName);
@@ -70,22 +102,8 @@ export default function Produtos() {
         }
     };
 
-    // Extract unique stores
-    const stores = useMemo(() => {
-        const storeMap = new Map<string, string>();
-        data.forEach(item => {
-            if (item.idloja && item.loja) {
-                storeMap.set(item.idloja, item.loja);
-            }
-        });
-        return Array.from(storeMap.entries()).map(([id, name]) => ({ id, name }));
-    }, [data]);
-
-    // Filter data
-    const filteredData = useMemo(() => {
-        if (!selectedStore) return data;
-        return data.filter(item => !item.idloja || item.idloja === selectedStore);
-    }, [data, selectedStore]);
+    // Filter data - Server-side filtering is now used
+    const filteredData = data;
 
     const formatCurrency = (value: string | number) => {
         const num = typeof value === 'string' ? parseFloat(value) : value;
@@ -99,6 +117,7 @@ export default function Produtos() {
 
     const tabs: { id: TabType; label: string }[] = [
         { id: 'analise', label: 'Análise Geral' },
+        { id: 'mix', label: 'Mix' },
         { id: 'ranking', label: 'Ranking' },
         { id: 'colecao', label: 'Por Coleção' },
         { id: 'cor', label: 'Por Cor' },
@@ -108,6 +127,10 @@ export default function Produtos() {
         { id: 'parados', label: 'Parados' },
         { id: 'vida-util', label: 'Vida Útil' },
         { id: 'margem', label: 'Margem' },
+        { id: 'margem-categoria', label: 'Margem/Categoria' },
+        { id: 'sell-through', label: 'Sell-Through' },
+        { id: 'giro-cobertura', label: 'Giro/Cobertura' },
+        { id: 'ruptura', label: 'Ruptura' },
     ];
 
     const renderTable = () => {
@@ -187,7 +210,7 @@ export default function Produtos() {
                         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                             {(filteredData as ProdutoAgregacao[]).map((item, idx) => (
                                 <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.id}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.id || item.idcolecao || item.cor || item.tamanho || item.idcategoria || '-'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{item.pedidos}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatNumber(item.quantidade)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatCurrency(item.faturamento)}</td>
@@ -235,7 +258,7 @@ export default function Produtos() {
                         <thead className="bg-gray-50 dark:bg-gray-900">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">SKU</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Modelo</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descrição</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Loja</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cor</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tam</th>
@@ -247,7 +270,7 @@ export default function Produtos() {
                             {(filteredData as ProdutoSKU[]).map((item, idx) => (
                                 <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.sku}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.modelo}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{item.descricao || item.modelo || '-'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.loja || '-'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.cor}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.tamanho}</td>
@@ -266,6 +289,7 @@ export default function Produtos() {
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Mês/Ano</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Produto</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descrição</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Loja</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Qtd</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Faturamento</th>
@@ -276,6 +300,7 @@ export default function Produtos() {
                                 <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.mes_ano}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.idproduto}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{item.descricao || '-'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.loja || '-'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatNumber(item.quantidade)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatCurrency(item.faturamento)}</td>
@@ -341,6 +366,7 @@ export default function Produtos() {
                         <thead className="bg-gray-50 dark:bg-gray-900">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Produto</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descrição</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Loja</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Faturamento</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Custo Total</th>
@@ -351,10 +377,152 @@ export default function Produtos() {
                             {(filteredData as ProdutoMargem[]).map((item, idx) => (
                                 <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.idproduto}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{item.descricao || '-'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.loja || '-'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatCurrency(item.faturamento)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatCurrency(item.custo_total)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatCurrency(item.margem_bruta)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                );
+
+            case 'mix':
+                return (
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-900">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categoria</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">SKUs Ativos</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Faturamento</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">% Faturamento</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            {filteredData.map((item: any, idx) => (
+                                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.idcategoria || item.categoria || item.grupo || '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{item.skus_ativos || item.total_skus || 0}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatCurrency(item.faturamento || 0)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{(parseFloat(item.percentual_faturamento || 0)).toFixed(2)}%</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                );
+
+            case 'margem-categoria':
+                return (
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-900">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categoria</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Faturamento</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Custo</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Margem Bruta</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">% Margem</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            {filteredData.map((item: any, idx) => (
+                                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.idcategoria || item.categoria || '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatCurrency(item.faturamento || 0)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatCurrency(item.custo_total || 0)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatCurrency(item.margem_bruta || 0)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{(parseFloat(item.percentual_margem || 0)).toFixed(2)}%</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                );
+
+            case 'sell-through':
+                return (
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-900">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Semana</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Produto</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descrição</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estoque Inicial</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Vendas</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sell-Through %</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            {filteredData.map((item: any, idx) => (
+                                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.semana || '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.idproduto || item.produto || '-'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{item.descricao || '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatNumber(item.estoque_inicial || 0)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatNumber(item.vendas || item.quantidade_vendida || 0)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{(parseFloat(item.sell_through || 0)).toFixed(2)}%</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                );
+
+            case 'giro-cobertura':
+                return (
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-900">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Produto</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descrição</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estoque Atual</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Venda Média</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Giro (dias)</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cobertura (dias)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            {filteredData.map((item: any, idx) => (
+                                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.idproduto || item.produto || '-'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{item.descricao || '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatNumber(item.estoque_atual || 0)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatNumber(item.venda_media_diaria || item.media_vendas || 0)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{(parseFloat(item.giro || 0)).toFixed(1)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{(parseFloat(item.cobertura || 0)).toFixed(1)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                );
+
+            case 'ruptura':
+                return (
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-900">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Produto</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descrição</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Loja</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estoque Atual</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Venda Média</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            {filteredData.map((item: any, idx) => (
+                                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.idproduto || item.produto || '-'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{item.descricao || '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.loja || '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatNumber(item.estoque_atual || 0)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">{formatNumber(item.venda_media || 0)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${item.em_ruptura || (item.estoque_atual || 0) === 0
+                                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                            : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                            }`}>
+                                            {item.em_ruptura || (item.estoque_atual || 0) === 0 ? 'Ruptura' : 'OK'}
+                                        </span>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -497,14 +665,14 @@ export default function Produtos() {
                     </div>
 
                     {/* Tabs */}
-                    <div className="px-8 border-t border-gray-200 dark:border-gray-700 overflow-x-auto">
-                        <nav className="flex space-x-8" aria-label="Tabs">
+                    <div className="border-t border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+                        <nav className="flex px-8 min-w-max" aria-label="Tabs">
                             {tabs.map((tab) => (
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
                                     className={`
-                                        whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                                        whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm transition-colors flex-shrink-0
                                         ${activeTab === tab.id
                                             ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
                                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'}
@@ -518,12 +686,21 @@ export default function Produtos() {
                 </header>
 
                 <div className="px-8 py-6 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                    <DateRangePicker
-                        startDate={startDate}
-                        endDate={endDate}
-                        onStartDateChange={setStartDate}
-                        onEndDateChange={setEndDate}
-                    />
+                    <div className="flex flex-wrap gap-6 items-end">
+                        <DateRangePicker
+                            startDate={startDate}
+                            endDate={endDate}
+                            onStartDateChange={setStartDate}
+                            onEndDateChange={setEndDate}
+                        />
+                        <div className="flex-1 min-w-[200px]">
+                            <StoreFilter
+                                stores={stores}
+                                selectedStore={selectedStore}
+                                onStoreChange={setSelectedStore}
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 <div className="px-8 py-8">

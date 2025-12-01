@@ -53,16 +53,16 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-950">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md">
                 <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-800 mb-2">MireData</h1>
-                    <p className="text-gray-600">Dashboard de Vendas</p>
+                    <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">MireData</h1>
+                    <p className="text-gray-600 dark:text-gray-400">Dashboard de Vendas</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
-                        <label htmlFor="usuario" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="usuario" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Usuário
                         </label>
                         <input
@@ -70,14 +70,14 @@ export default function Login() {
                             id="usuario"
                             value={usuario}
                             onChange={(e) => setUsuario(e.target.value)}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
                             placeholder="Digite seu usuário"
                             disabled={loading}
                         />
                     </div>
 
                     <div>
-                        <label htmlFor="senha" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="senha" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Senha
                         </label>
                         <input
@@ -85,14 +85,14 @@ export default function Login() {
                             id="senha"
                             value={senha}
                             onChange={(e) => setSenha(e.target.value)}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
                             placeholder="Digite sua senha"
                             disabled={loading}
                         />
                     </div>
 
                     {error && (
-                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
                             {error}
                         </div>
                     )}

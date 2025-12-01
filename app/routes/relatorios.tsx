@@ -1,19 +1,21 @@
 import { useState } from 'react';
+import { getToday } from '~/lib/api';
 import DashboardWrapper from '~/components/DashboardWrapper';
 import DateRangePicker from '~/components/DateRangePicker';
 import StoreFilter from '~/components/StoreFilter';
+import { useFilter } from '~/components/FilterContext';
 
 export default function Relatorios() {
-    // Date state
-    const [startDate, setStartDate] = useState(() => {
-        const d = new Date();
-        d.setDate(d.getDate() - 30);
-        return d.toISOString().split('T')[0];
-    });
-    const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
-
-    // Store filter state
-    const [selectedStore, setSelectedStore] = useState<string>('');
+    // Global filter state
+    const {
+        startDate,
+        endDate,
+        setStartDate,
+        setEndDate,
+        selectedStore,
+        setSelectedStore,
+        stores
+    } = useFilter();
 
     return (
         <DashboardWrapper>
@@ -34,7 +36,7 @@ export default function Relatorios() {
                             onEndDateChange={setEndDate}
                         />
                         <StoreFilter
-                            stores={[]} // No data yet to populate stores
+                            stores={stores}
                             selectedStore={selectedStore}
                             onStoreChange={setSelectedStore}
                         />

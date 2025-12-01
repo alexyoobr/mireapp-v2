@@ -13,7 +13,11 @@ export interface ProdutoAnalise {
 }
 
 export interface ProdutoAgregacao {
-    id: string; // idcolecao, cor, or tamanho
+    id?: string; // Generic id field
+    idcolecao?: string; // For collection aggregation
+    cor?: string; // For color aggregation (without id prefix)
+    tamanho?: string; // For size aggregation (without id prefix)
+    idcategoria?: string; // For category aggregation
     pedidos: number;
     quantidade: string;
     faturamento: string;
@@ -35,6 +39,7 @@ export interface ProdutoRanking {
 
 export interface ProdutoSKU {
     modelo: string;
+    descricao?: string;
     cor: string;
     tamanho: string;
     sku: string;
@@ -49,6 +54,7 @@ export interface ProdutoSKU {
 export interface ProdutoMensal {
     mes_ano: string;
     idproduto: string;
+    descricao?: string;
     pedidos: number;
     quantidade: number;
     faturamento: number;
@@ -76,6 +82,7 @@ export interface ProdutoVidaUtil {
 
 export interface ProdutoMargem {
     idproduto: string;
+    descricao?: string;
     faturamento: number;
     custo_total: number;
     margem_bruta: number;

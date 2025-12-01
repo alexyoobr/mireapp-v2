@@ -3,12 +3,12 @@ import { getAuth, apiRequest } from '~/lib/api';
 import DashboardWrapper from '~/components/DashboardWrapper';
 import DateRangePicker from '~/components/DateRangePicker';
 import StoreFilter from '~/components/StoreFilter';
-import type { VendaSerie } from '~/types/venda';
+import type { VendaSerie, VendaPagamento } from '~/types/venda';
 import type { ClienteRanking } from '~/types/cliente';
 import type { ProdutoRanking } from '~/types/produto';
 import { useFilter } from '~/components/FilterContext';
 
-type TabType = 'vendas' | 'clientes' | 'produtos' | 'contas';
+type TabType = 'vendas' | 'clientes' | 'produtos' | 'pagamentos';
 
 export default function Vendas() {
     const [activeTab, setActiveTab] = useState<TabType>('vendas');
@@ -16,7 +16,8 @@ export default function Vendas() {
         vendas: VendaSerie[];
         clientes: any[];
         produtos: any[];
-    }>({ vendas: [], clientes: [], produtos: [] });
+        pagamentos: VendaPagamento[];
+    }>({ vendas: [], clientes: [], produtos: [], pagamentos: [] });
     const [loading, setLoading] = useState(true);
     const [dbName, setDbName] = useState<string>('');
 
@@ -44,7 +45,7 @@ export default function Vendas() {
 
             loadData(auth);
         }
-    }, [startDate, endDate, selectedStore]);
+    }, [startDate, endDate, selectedStore, activeTab]);
 
     const loadStores = async (db: string) => {
         try {
@@ -66,25 +67,25 @@ export default function Vendas() {
         try {
             const inicioStr = startDate;
             const fimStr = endDate;
+            const storeParam = selectedStore ? `&idloja=${selectedStore}` : '';
 
-            let vendasUrl = `/vendas/serie?inicio=${inicioStr}&fim=${fimStr}&nivel=dia`;
-            let clientesUrl = `/clientes?inicio=${inicioStr}&fim=${fimStr}`;
-            let produtosUrl = `/produtos/analise?inicio=${inicioStr}&fim=${fimStr}`;
+            if (activeTab === 'pagamentos') {
+                const pagamentosUrl = `/vendas/pagamentos/por-tipo?inicio=${inicioStr}&fim=${fimStr}${storeParam}`;
+                const pagamentos = await apiRequest<VendaPagamento[]>(pagamentosUrl, db);
+                setRawData(prev => ({ ...prev, pagamentos }));
+            } else {
+                let vendasUrl = `/vendas/serie?inicio=${inicioStr}&fim=${fimStr}&nivel=dia${storeParam}`;
+                let clientesUrl = `/clientes/ranking?inicio=${inicioStr}&fim=${fimStr}${storeParam}`;
+                let produtosUrl = `/produtos/ranking?inicio=${inicioStr}&fim=${fimStr}${storeParam}`;
 
-            if (selectedStore) {
-                const storeParam = `&idloja=${selectedStore}`;
-                vendasUrl += storeParam;
-                clientesUrl += storeParam;
-                produtosUrl += storeParam;
+                const [vendasData, clientes, produtos] = await Promise.all([
+                    apiRequest<VendaSerie[]>(vendasUrl, db),
+                    apiRequest<any[]>(clientesUrl, db),
+                    apiRequest<any[]>(produtosUrl, db),
+                ]);
+
+                setRawData(prev => ({ ...prev, vendas: vendasData, clientes, produtos }));
             }
-
-            const [vendasData, clientes, produtos] = await Promise.all([
-                apiRequest<VendaSerie[]>(vendasUrl, db),
-                apiRequest<any[]>(clientesUrl, db),
-                apiRequest<any[]>(produtosUrl, db),
-            ]);
-
-            setRawData({ vendas: vendasData, clientes, produtos });
         } catch (error) {
             console.error('Error loading data:', error);
         } finally {
@@ -106,7 +107,7 @@ export default function Vendas() {
         { id: 'vendas', label: 'Vendas' },
         { id: 'clientes', label: 'Top Clientes' },
         { id: 'produtos', label: 'Top Produtos' },
-        { id: 'contas', label: 'Contas' },
+        { id: 'pagamentos', label: 'Pagamentos' },
     ];
 
     const renderCards = () => {
@@ -160,6 +161,18 @@ export default function Vendas() {
             );
         }
 
+        if (activeTab === 'pagamentos') {
+            const totalTransacoes = rawData.pagamentos.reduce((sum, p) => sum + (p.quantidade_pedidos || 0), 0);
+            const totalValor = rawData.pagamentos.reduce((sum, p) => sum + parseFloat(p.valor_total || '0'), 0);
+
+            return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <StatCard title="Total de Transações" value={totalTransacoes} icon="💳" color="blue" />
+                    <StatCard title="Valor Total" value={formatCurrency(totalValor)} icon="💰" color="green" />
+                </div>
+            );
+        }
+
         return null;
     };
 
@@ -179,8 +192,8 @@ export default function Vendas() {
                 return <ClientesTab data={rawData.clientes} stores={stores} selectedStore={selectedStore} />;
             case 'produtos':
                 return <ProdutosTab data={rawData.produtos} stores={stores} selectedStore={selectedStore} />;
-            case 'contas':
-                return <ContasTab dbName={dbName} />;
+            case 'pagamentos':
+                return <PagamentosTab data={rawData.pagamentos} />;
             default:
                 return null;
         }
@@ -333,9 +346,9 @@ function ClientesTab({ data, stores, selectedStore }: { data: ClienteRanking[]; 
                 </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {data.slice(0, 10).map((cliente) => (
+                {data.slice(0, 10).map((cliente, index) => (
                     <tr key={cliente.idcliente} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">#{cliente.ranking_faturamento}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">#{cliente.ranking_faturamento || index + 1}</td>
                         <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
                             <div className="font-medium">{cliente.nome}</div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">{cliente.idcliente}</div>
@@ -371,9 +384,9 @@ function ProdutosTab({ data, stores, selectedStore }: { data: ProdutoRanking[]; 
                 </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {data.slice(0, 10).map((produto) => (
+                {data.slice(0, 10).map((produto, index) => (
                     <tr key={produto.idproduto} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">#{produto.rank_faturamento}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">#{produto.rank_faturamento || index + 1}</td>
                         <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
                             <div className="font-medium">{produto.descricao}</div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">{produto.idproduto}</div>
@@ -395,11 +408,42 @@ function ProdutosTab({ data, stores, selectedStore }: { data: ProdutoRanking[]; 
     );
 }
 
-function ContasTab({ dbName }: { dbName: string }) {
+function PagamentosTab({ data }: { data: VendaPagamento[] }) {
+    const total = data.reduce((sum, item) => sum + parseFloat(item.valor_total || '0'), 0);
+
     return (
-        <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400">Seção de contas em desenvolvimento</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">Conectado ao banco: {dbName}</p>
-        </div>
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipo de Pagamento</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pedidos</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor Total</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">% do Total</th>
+                </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {data.map((item, index) => {
+                    const valor = parseFloat(item.valor_total || '0');
+                    const percentual = total > 0 ? (valor / total) * 100 : 0;
+
+                    return (
+                        <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                                {item.tipo_pagamento}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">
+                                {item.quantidade_pedidos}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">
+                                {valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                                {percentual.toFixed(1)}%
+                            </td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
     );
 }

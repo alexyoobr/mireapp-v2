@@ -9,3 +9,12 @@ export interface VendaSerie {
     idloja?: string;
     loja?: string;
 }
+
+export interface VendaPagamento {
+    tipo_pagamento: string;
+    valor_total: string;
+    quantidade_pedidos: number;
+    percentual?: string;
+    idloja?: string;
+    loja?: string;
+}
